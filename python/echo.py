@@ -3,23 +3,10 @@
 import json
 import sys
 
+from node import Node
 
-class EchoServer:
 
-    def __init__(self):
-        self.node_id = None
-        self.msg_id = 1
-
-    def reply(self, dest, body):
-        resp = {
-            "src": self.node_id,
-            "dest": dest,
-            "body": body
-        }
-        # sys.stderr.write(json.dumps(resp) + "\n")
-        sys.stdout.write(json.dumps(resp) + "\n")
-        sys.stdout.flush()
-
+class EchoServer(Node):
     def run(self):
         for line in sys.stdin:
             msg = json.loads(line)
