@@ -6,7 +6,7 @@ import threading
 class Node:
     def __init__(self):
         self.node_id = None
-        self.msg_id = 1
+        self.msg_id = 0
         self._lock = threading.RLock()
 
     def reply(self, dest, body):
