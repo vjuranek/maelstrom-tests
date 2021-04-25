@@ -1,16 +1,14 @@
 #!/usr/bin/env python
 
-import json
 import sys
 
-from node import Node
+import node
 
 
-class EchoServer(Node):
+class EchoServer(node.Node):
     def run(self):
         for line in sys.stdin:
-            req = json.loads(line)
-            body = req["body"]
+            req, body = node.parse_req(line)
             resp_body = {}
 
             if body["type"] == "init":

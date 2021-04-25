@@ -30,3 +30,9 @@ class Node:
             "in_reply_to": req["body"]["msg_id"],
         }
         self.send(req["src"], body)
+
+
+def parse_req(line):
+    req = json.loads(line)
+    body = req["body"]
+    return req, body
