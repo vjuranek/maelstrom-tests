@@ -31,6 +31,15 @@ class Node:
         }
         self.send(req["src"], body)
 
+    def run(self):
+        for line in sys.stdin:
+            req, body = parse_req(line)
+            resp_body = self.response(req.copy(), body)
+            self.reply(req, resp_body)
+
+    def response(self, req, req_body):
+        raise NotImplementedError()
+
 
 def parse_req(line):
     req = json.loads(line)
