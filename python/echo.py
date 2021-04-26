@@ -1,21 +1,19 @@
 #!/usr/bin/env python
 
-import node
+from node import Node
 
 
-class EchoServer(node.Node):
-    def response(self, req, body):
-        resp_body = {}
+def echo_handler(body):
+    return {
+        "type": "echo_ok",
+        "echo": body["echo"],
+    }
 
-        if body["type"] == "init":
-            self.node_id = body["node_id"]
-            resp_body["type"] = "init_ok"
 
-        if body["type"] == "echo":
-            resp_body["type"] = "echo_ok"
-            resp_body["echo"] = body["echo"]
-
-        return resp_body
+class EchoServer(Node):
+    def __init__(self):
+        super().__init__()
+        self.register_handler("echo", echo_handler)
 
 
 def main():
