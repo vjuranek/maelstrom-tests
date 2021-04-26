@@ -39,14 +39,14 @@ class Node:
             req, body = parse_req(line)
             req_type = body["type"]
             if req_type not in self._handlers:
-                raise Exception("No handler for request type %r", req_type)
+                raise Exception("No handler for request type %r" % req_type)
 
             resp_body = self._handlers[req_type](body)
             self.reply(req, resp_body)
 
     def register_handler(self, req_type, handler):
         if req_type in self._handlers:
-            raise Exception("Handler for %r already registered", req_type)
+            raise Exception("Handler for %r already registered" % req_type)
         self._handlers[req_type] = handler
 
     def init_handler(self, body):
