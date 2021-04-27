@@ -20,7 +20,6 @@ class Node:
                 "dest": dest,
                 "body": {
                     **body,
-                    "msg_id": self.msg_id,
                 },
             }
             # sys.stderr.write(json.dumps(resp) + "\n")
@@ -30,6 +29,7 @@ class Node:
     def reply(self, req, resp_body):
         body = {
             **resp_body,
+            "msg_id": self.msg_id,
             "in_reply_to": req["body"]["msg_id"],
         }
         self.send(req["src"], body)
@@ -42,7 +42,8 @@ class Node:
                 raise Exception("No handler for request type %r" % req_type)
 
             resp_body = self._handlers[req_type](body)
-            self.reply(req, resp_body)
+            if resp_body:
+                self.reply(req, resp_body)
 
     def register_handler(self, req_type, handler):
         if req_type in self._handlers:
