@@ -2,20 +2,22 @@
 
 import threading
 
+from functools import partial
+
 from node import Node
-
-
-def echo_handler(body):
-    return {
-        "type": "echo_ok",
-        "echo": body["echo"],
-    }
 
 
 class EchoServer(Node):
     def __init__(self):
         super().__init__()
-        self.register_handler("echo", echo_handler)
+        self.register_handler("echo", partial(self.echo_handler, self))
+
+    @staticmethod
+    def echo_handler(cls, body):
+        return {
+            "type": "echo_ok",
+            "echo": body["echo"],
+        }
 
 
 class BroadcastServer(Node):
