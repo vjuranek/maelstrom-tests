@@ -66,13 +66,3 @@ class BroadcastServer(Node):
                 "type": "read_ok",
                 "messages": list(self.messages),
             }
-
-
-def main():
-    test_server = BroadcastServer()
-    # test_server = EchoServer()
-    test_server.run()
-
-
-if __name__ == "__main__":
-    main()

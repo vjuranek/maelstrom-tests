@@ -1,0 +1,17 @@
+#!/usr/bin/env python
+
+import argparse
+
+from server import EchoServer, BroadcastServer
+
+parser = argparse.ArgumentParser(description="Maelstrom test server")
+parser.add_argument("-w", "--workload", choices=["echo", "broadcast"])
+args = parser.parse_args()
+
+server = None
+if args.workload == "echo":
+    server = EchoServer()
+if args.workload == "broadcast":
+    server = BroadcastServer()
+
+server.run()
