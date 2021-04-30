@@ -45,12 +45,12 @@ class BroadcastServer(Node):
             if msg not in self.messages:
                 self.messages.add(msg)
 
+                broadcast_body = {
+                    "type": "broadcast",
+                    "message": msg,
+                    "internal": True,
+                }
                 for node in self.neighbors:
-                    broadcast_body = {
-                        "type": "broadcast",
-                        "message": msg,
-                        "internal": True,
-                    }
                     self.send(node, broadcast_body)
 
         if "msg_id" in body:
