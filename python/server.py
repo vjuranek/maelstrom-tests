@@ -51,7 +51,8 @@ class BroadcastServer(Node):
                     "internal": True,
                 }
                 for node in self.neighbors:
-                    self.send(node, broadcast_body)
+                    if node != body["req"]["src"]:
+                        self.send(node, broadcast_body)
 
         if "msg_id" in body:
             return {

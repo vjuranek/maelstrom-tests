@@ -41,6 +41,7 @@ class Node:
             if req_type not in self._handlers:
                 raise Exception("No handler for request type %r" % req_type)
 
+            body["req"] = {"src": req["src"]}
             resp_body = self._handlers[req_type](body)
             if resp_body:
                 self.reply(req, resp_body)
