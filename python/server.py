@@ -41,18 +41,21 @@ class BroadcastServer(Node):
     def broadcast_handler(self, body):
         msg = body["message"]
 
+        new_msg = False
         with self.msg_lock:
             if msg not in self.messages:
                 self.messages.add(msg)
+                new_msg = True
 
-                broadcast_body = {
-                    "type": "broadcast",
-                    "message": msg,
-                    "internal": True,
-                }
-                for node in self.neighbors:
-                    if node != body["req"]["src"]:
-                        self.send(node, broadcast_body)
+        if new_msg:
+            broadcast_body = {
+                "type": "broadcast",
+                "message": msg,
+                "internal": True,
+            }
+            for node in self.neighbors:
+                if node != body["req"]["src"]:
+                    self.send(node, broadcast_body)
 
         if "msg_id" in body:
             return {
