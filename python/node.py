@@ -8,6 +8,7 @@ class Node:
         self.node_id = None
         self.msg_id = 0
         self._lock = threading.RLock()
+        self._log_lock = threading.RLock()
         self._handlers = {
             "init": self.init_handler,
         }
@@ -22,7 +23,7 @@ class Node:
                     **body,
                 },
             }
-            # sys.stderr.write(json.dumps(resp) + "\n")
+            self.log("{} -> {}: {}", self.node_id, dest, resp)
             sys.stdout.write(json.dumps(resp) + "\n")
             sys.stdout.flush()
 
@@ -56,6 +57,13 @@ class Node:
         return {
             "type": "init_ok",
         }
+
+    def log(self, log_msg, *args):
+        if args:
+            log_msg = log_msg.format(*args)
+        with self._log_lock:
+            sys.stderr.write(json.dumps(log_msg) + "\n")
+            sys.stderr.flush()
 
 
 def parse_req(line):
