@@ -14,10 +14,11 @@ class EchoServer(Node):
 
     def echo_handler(self, req):
         body = req["body"]
-        return {
+        resp_body = {
             "type": "echo_ok",
             "echo": body["echo"],
         }
+        self.reply(req, resp_body)
 
 
 class BroadcastServer(Node):
@@ -35,9 +36,10 @@ class BroadcastServer(Node):
     def topology_handler(self, req):
         body = req["body"]
         self.neighbors = body["topology"][self.node_id]
-        return {
+        resp_body = {
             "type": "topology_ok",
         }
+        self.reply(req, resp_body)
 
     def broadcast_handler(self, req):
         body = req["body"]
@@ -60,15 +62,15 @@ class BroadcastServer(Node):
                     self.send(node, broadcast_body)
 
         if "msg_id" in body:
-            return {
+            resp_body = {
                 "type": "broadcast_ok",
             }
-        else:
-            return None
+            self.reply(req, resp_body)
 
     def read_handler(self, req):
         with self.msg_lock:
-            return {
+            resp_body = {
                 "type": "read_ok",
                 "messages": list(self.messages),
             }
+            self.reply(req, resp_body)

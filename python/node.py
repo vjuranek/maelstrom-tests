@@ -41,10 +41,7 @@ class Node:
             req_type = body["type"]
             if req_type not in self._handlers:
                 raise Exception("No handler for request type %r" % req_type)
-
-            resp_body = self._handlers[req_type](req)
-            if resp_body:
-                self.reply(req, resp_body)
+            self._handlers[req_type](req)
 
     def register_handler(self, req_type, handler):
         if req_type in self._handlers:
@@ -54,9 +51,10 @@ class Node:
     def init_handler(self, req):
         body = req["body"]
         self.node_id = body["node_id"]
-        return {
+        resp_body = {
             "type": "init_ok",
         }
+        self.reply(req, resp_body)
 
     def log(self, log_msg, *args):
         if args:
