@@ -12,7 +12,7 @@ class EchoServer(Node):
         super().__init__()
         self.register_handler("echo", self.echo_handler)
 
-    def echo_handler(self, req):
+    async def echo_handler(self, req):
         body = req["body"]
         resp_body = {
             "type": "echo_ok",
@@ -33,7 +33,7 @@ class BroadcastServer(Node):
         self.register_handler("broadcast", self.broadcast_handler)
         self.register_handler("read", self.read_handler)
 
-    def topology_handler(self, req):
+    async def topology_handler(self, req):
         body = req["body"]
         self.neighbors = body["topology"][self.node_id]
         resp_body = {
@@ -41,7 +41,7 @@ class BroadcastServer(Node):
         }
         self.reply(req, resp_body)
 
-    def broadcast_handler(self, req):
+    async def broadcast_handler(self, req):
         body = req["body"]
         msg = body["message"]
 
@@ -67,7 +67,7 @@ class BroadcastServer(Node):
             }
             self.reply(req, resp_body)
 
-    def read_handler(self, req):
+    async def read_handler(self, req):
         with self.msg_lock:
             resp_body = {
                 "type": "read_ok",

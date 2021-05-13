@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import asyncio
 import argparse
 
 from server import EchoServer, BroadcastServer
@@ -14,4 +15,4 @@ if args.workload == "echo":
 if args.workload == "broadcast":
     server = BroadcastServer()
 
-server.run()
+asyncio.run(server.run())
