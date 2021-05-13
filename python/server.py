@@ -13,7 +13,8 @@ class EchoServer(Node):
         self.register_handler("echo", partial(self.echo_handler, self))
 
     @staticmethod
-    def echo_handler(cls, body):
+    def echo_handler(cls, req):
+        body = req["body"]
         return {
             "type": "echo_ok",
             "echo": body["echo"],
@@ -32,13 +33,15 @@ class BroadcastServer(Node):
         self.register_handler("broadcast", self.broadcast_handler)
         self.register_handler("read", self.read_handler)
 
-    def topology_handler(self, body):
+    def topology_handler(self, req):
+        body = req["body"]
         self.neighbors = body["topology"][self.node_id]
         return {
             "type": "topology_ok",
         }
 
-    def broadcast_handler(self, body):
+    def broadcast_handler(self, req):
+        body = req["body"]
         msg = body["message"]
 
         new_msg = False
@@ -54,7 +57,7 @@ class BroadcastServer(Node):
                 "internal": True,
             }
             for node in self.neighbors:
-                if node != body["req"]["src"]:
+                if node != req["src"]:
                     self.send(node, broadcast_body)
 
         if "msg_id" in body:
@@ -64,7 +67,7 @@ class BroadcastServer(Node):
         else:
             return None
 
-    def read_handler(self, body):
+    def read_handler(self, req):
         with self.msg_lock:
             return {
                 "type": "read_ok",

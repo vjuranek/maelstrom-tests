@@ -42,8 +42,7 @@ class Node:
             if req_type not in self._handlers:
                 raise Exception("No handler for request type %r" % req_type)
 
-            body["req"] = {"src": req["src"]}
-            resp_body = self._handlers[req_type](body)
+            resp_body = self._handlers[req_type](req)
             if resp_body:
                 self.reply(req, resp_body)
 
@@ -52,7 +51,8 @@ class Node:
             raise Exception("Handler for %r already registered" % req_type)
         self._handlers[req_type] = handler
 
-    def init_handler(self, body):
+    def init_handler(self, req):
+        body = req["body"]
         self.node_id = body["node_id"]
         return {
             "type": "init_ok",
