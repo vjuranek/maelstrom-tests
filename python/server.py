@@ -10,10 +10,9 @@ from node import Node
 class EchoServer(Node):
     def __init__(self):
         super().__init__()
-        self.register_handler("echo", partial(self.echo_handler, self))
+        self.register_handler("echo", self.echo_handler)
 
-    @staticmethod
-    def echo_handler(cls, req):
+    def echo_handler(self, req):
         body = req["body"]
         return {
             "type": "echo_ok",
