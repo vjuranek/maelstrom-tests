@@ -13,6 +13,7 @@ class Node:
         self._handlers = {
             "init": self.init_handler,
         }
+        self._callbacks = {}
 
     def send(self, dest, body):
         with self._lock:
@@ -39,11 +40,24 @@ class Node:
     async def run(self):
         for line in sys.stdin:
             req, body = parse_req(line)
-            req_type = body["type"]
-            if req_type not in self._handlers:
-                raise Exception("No handler for request type %r" % req_type)
-            task = asyncio.create_task(self._handlers[req_type](req))
+            handler = self._get_handler(body)
+            task = asyncio.create_task(handler(req))
             await task
+
+    def _get_handler(self, body):
+        req_type = body["type"]
+        in_reply_to = body.get("in_reply_to")
+
+        if in_reply_to and in_reply_to in self._callbacks:
+            handler = self._callbacks[in_reply_to]
+            del self._callbacks[in_reply_to]
+        else:
+            if req_type not in self._handlers:
+                raise Exception(
+                    "No handler for request type %r" % req_type)
+            handler = self._handlers[req_type]
+
+        return handler
 
     def register_handler(self, req_type, handler):
         if req_type in self._handlers:
