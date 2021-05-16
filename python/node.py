@@ -46,9 +46,13 @@ class Node:
     async def process_lines(self):
         for line in sys.stdin:
             req, body = parse_req(line)
-            handler = self._get_handler(body)
-            task = asyncio.create_task(handler(req))
-            await task
+            try:
+                handler = self._get_handler(body)
+            except Exception:
+                pass
+            else:
+                task = asyncio.create_task(handler(req))
+                await task
 
     def _get_handler(self, body):
         req_type = body["type"]
