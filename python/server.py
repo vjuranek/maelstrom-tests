@@ -4,8 +4,6 @@ import asyncio
 import threading
 import time
 
-from functools import partial
-
 from node import Node
 
 
