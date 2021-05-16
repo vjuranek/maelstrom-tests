@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
+import asyncio
 import threading
+import time
 
 from functools import partial
 
@@ -42,30 +44,53 @@ class BroadcastServer(Node):
         self.reply(req, resp_body)
 
     async def broadcast_handler(self, req):
-        body = req["body"]
-        msg = body["message"]
+        neighbors_ack = self.neighbors.copy()
 
+        if "internal" in req["body"]:
+            neighbors_ack.remove(req["src"])
+            self.send(req["src"], {
+                "type": "broadcast_ok",
+                "callback_id": "{}_{}".format(
+                    req["body"]["broadcast_id"], self.node_id)
+            })
+        else:
+            self.reply(req, {"type": "broadcast_ok"})
+
+        msg = req["body"]["message"]
         new_msg = False
         with self.msg_lock:
             if msg not in self.messages:
                 self.messages.add(msg)
                 new_msg = True
 
+        async def broadcast_ack_handler(req):
+            if req["body"]["type"] == "broadcast_ok":
+                neighbors_ack.remove(req["src"])
+
+        def broadcast_neighbors():
+            while neighbors_ack:
+                for node in neighbors_ack:
+                    self.send(
+                        node,
+                        broadcast_body,
+                        callback=broadcast_ack_handler,
+                        callback_id="{}_{}".format(broadcast_id, node)
+                    )
+                time.sleep(1)
+
         if new_msg:
+            broadcast_id = req["body"].get("broadcast_id")
+            if broadcast_id is None:
+                broadcast_id = req["body"]["msg_id"]
             broadcast_body = {
                 "type": "broadcast",
                 "message": msg,
                 "internal": True,
+                "broadcast_id": broadcast_id
             }
-            for node in self.neighbors:
-                if node != req["src"]:
-                    self.send(node, broadcast_body)
 
-        if "msg_id" in body:
-            resp_body = {
-                "type": "broadcast_ok",
-            }
-            self.reply(req, resp_body)
+            asyncio.gather(asyncio.to_thread(broadcast_neighbors))
+
 
     async def read_handler(self, req):
         with self.msg_lock:

@@ -15,7 +15,10 @@ class Node:
         }
         self._callbacks = {}
 
-    def send(self, dest, body):
+    def send(self, dest, body, callback=None, callback_id=None):
+        if callback and callback_id:
+            self._callbacks[callback_id] = callback
+
         with self._lock:
             self.msg_id += 1
             resp = {
@@ -38,6 +41,9 @@ class Node:
         self.send(req["src"], body)
 
     async def run(self):
+        await self.process_lines()
+
+    async def process_lines(self):
         for line in sys.stdin:
             req, body = parse_req(line)
             handler = self._get_handler(body)
@@ -46,11 +52,11 @@ class Node:
 
     def _get_handler(self, body):
         req_type = body["type"]
-        in_reply_to = body.get("in_reply_to")
+        callback_id = body.get("callback_id")
 
-        if in_reply_to and in_reply_to in self._callbacks:
-            handler = self._callbacks[in_reply_to]
-            del self._callbacks[in_reply_to]
+        if callback_id and callback_id in self._callbacks:
+            handler = self._callbacks[callback_id]
+            del self._callbacks[callback_id]
         else:
             if req_type not in self._handlers:
                 raise Exception(
