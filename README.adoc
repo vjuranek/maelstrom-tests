@@ -1,0 +1,13 @@
+= Maelstrom test servers
+
+Implementations of various server covered by https://github.com/jepsen-io/maelstrom[Jepsen's Maelstrom] tests.
+See https://github.com/jepsen-io/maelstrom/blob/main/doc/workloads.md[Maelstrom workload] for an overview.
+
+== Running server
+
+`./maelstrom_server -w [workload]`
+
+== Running Maelstrom tests
+
+* `./maelstrom test -w broadcast --bin /home/vjuranek/ws_clojure/maelstrom-tests/python/maelstrom_server  --time-limit 10 --log-stderr --nemesis partition -- -w broadcast`
+* `lein run test -w broadcast --bin /home/vjuranek/ws_clojure/maelstrom-tests/python/maelstrom_server  --time-limit 10 --log-stderr --nemesis partition -- -w broadcast`
