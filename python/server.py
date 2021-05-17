@@ -42,9 +42,21 @@ class BroadcastServer(Node):
         self.reply(req, resp_body)
 
     async def broadcast_handler(self, req):
+        """
+        Handler implementing broadcast. Broadcast messages sent by nodes in
+        the cluster contain field `internal` set to `True`. It also contains
+        `broadcast_id`, which has similar purpose as `msg_id`, but to
+        distinguish it from `msg_id`, it's called `broadcast_id`.
+
+        Once node receives such message, it replies with `broadcast_ok`
+        message. This message also contains `callback_id` which determines
+        the callback function to be called by the sender once it receives
+        `broadcast_ok` message.
+        """
         neighbors_ack = self.neighbors.copy()
 
         if "internal" in req["body"]:
+            # Don't resend message back to the sender.
             neighbors_ack.remove(req["src"])
             self.send(req["src"], {
                 "type": "broadcast_ok",
@@ -62,6 +74,10 @@ class BroadcastServer(Node):
                 new_msg = True
 
         async def broadcast_ack_handler(req):
+            """
+            Handler which removes sender from the list of nodes which haven't
+            accepted new broadcast message yet.
+            """
             if req["body"]["type"] == "broadcast_ok":
                 neighbors_ack.remove(req["src"])
 
@@ -79,6 +95,8 @@ class BroadcastServer(Node):
         if new_msg:
             broadcast_id = req["body"].get("broadcast_id")
             if broadcast_id is None:
+                # `broadcast_id` has similar function as msg_is in
+                # client-server communication.
                 broadcast_id = req["body"]["msg_id"]
             broadcast_body = {
                 "type": "broadcast",
@@ -87,8 +105,10 @@ class BroadcastServer(Node):
                 "broadcast_id": broadcast_id
             }
 
+            # This has to be run in separate thread not to block event loop, as
+            # in case of network partition, this would block until the
+            # connection is re-established.
             asyncio.gather(asyncio.to_thread(broadcast_neighbors))
-
 
     async def read_handler(self, req):
         with self.msg_lock:
