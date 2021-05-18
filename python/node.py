@@ -8,6 +8,7 @@ import time
 class Node:
     def __init__(self):
         self.node_id = None
+        self.node_ids = None
         self.msg_id = 0
         self._lock = threading.RLock()
         self._log_lock = threading.RLock()
@@ -79,6 +80,8 @@ class Node:
     async def init_handler(self, req):
         body = req["body"]
         self.node_id = body["node_id"]
+        self.node_ids = body["node_ids"]
+
         resp_body = {
             "type": "init_ok",
         }
