@@ -15,7 +15,7 @@ class Node:
             "init": self.init_handler,
         }
         self._callbacks = {}
-        self._periodic_tasks = {}
+        self._periodic_tasks = []
 
     def send(self, dest, body, callback=None, callback_id=None):
         if callback and callback_id:
