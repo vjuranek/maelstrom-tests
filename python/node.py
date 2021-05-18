@@ -2,6 +2,7 @@ import asyncio
 import json
 import sys
 import threading
+import time
 
 
 class Node:
@@ -14,6 +15,7 @@ class Node:
             "init": self.init_handler,
         }
         self._callbacks = {}
+        self._periodic_tasks = {}
 
     def send(self, dest, body, callback=None, callback_id=None):
         if callback and callback_id:
@@ -81,6 +83,17 @@ class Node:
             "type": "init_ok",
         }
         self.reply(req, resp_body)
+        self.start_periodic_tasks()
+
+    def start_periodic_tasks(self):
+        for task in self._periodic_tasks:
+            t = threading.Thread(target=self._run_periodic_task, args=(task,))
+            t.start()
+
+    def _run_periodic_task(self, task):
+        while True:
+            task["f"]()
+            time.sleep(task["dt"])
 
     def log(self, log_msg, *args):
         if args:
