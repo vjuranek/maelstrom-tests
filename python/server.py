@@ -117,3 +117,47 @@ class BroadcastServer(Node):
                 "messages": list(self.messages),
             }
             self.reply(req, resp_body)
+
+
+class GSetServer(Node):
+    def __init__(self):
+        super().__init__()
+
+        self._set = set()
+        self.set_lock = threading.RLock()
+
+        self.register_handler("read", self.read_handler)
+        self.register_handler("add", self.add_handler)
+        self.register_handler("replicate", self.replicate_handler)
+
+        self._periodic_tasks.append({"f": self._replicate, "dt": 5})
+
+    def _replicate(self):
+        with self.set_lock:
+            values = list(self._set)
+
+        self.log("Replicating set {}", values)
+        for node in self.node_ids:
+            if node != self.node_id:
+                resp_body = {
+                    "type": "replicate",
+                    "value": values,
+                }
+                self.send(node, resp_body)
+
+    async def read_handler(self, req):
+        with self.set_lock:
+            resp_body = {
+                "type": "read_ok",
+                "value": list(self._set),
+            }
+            self.reply(req, resp_body)
+
+    async def add_handler(self, req):
+        with self.set_lock:
+            self._set.add(req["body"]["element"])
+        self.reply(req, {"type": "add_ok"})
+
+    async def replicate_handler(self, req):
+        with self.set_lock:
+            self._set = self._set.union(req["body"]["value"])

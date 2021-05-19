@@ -3,10 +3,10 @@
 import asyncio
 import argparse
 
-from server import EchoServer, BroadcastServer
+from server import EchoServer, BroadcastServer, GSetServer
 
 parser = argparse.ArgumentParser(description="Maelstrom test server")
-parser.add_argument("-w", "--workload", choices=["echo", "broadcast"])
+parser.add_argument("-w", "--workload", choices=["echo", "broadcast", "g-set"])
 args = parser.parse_args()
 
 server = None
@@ -14,5 +14,7 @@ if args.workload == "echo":
     server = EchoServer()
 if args.workload == "broadcast":
     server = BroadcastServer()
+if args.workload == "g-set":
+    server = GSetServer()
 
 asyncio.run(server.run())
