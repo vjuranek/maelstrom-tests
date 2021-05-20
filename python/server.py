@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import asyncio
+import json
 import threading
 import time
 
@@ -161,3 +162,77 @@ class GSetServer(Node):
     async def replicate_handler(self, req):
         with self.set_lock:
             self._set = self._set.union(req["body"]["value"])
+
+
+class GCounter:
+    def __init__(self, counters=dict()):
+        self.counters = counters
+
+    def sum(self):
+        s = 0
+        for v in self.counters.values():
+            s += v
+        return s
+
+    def add(self, node_id, increment):
+        counters = self.counters.copy()
+        counters[node_id] = counters.get(node_id, 0) + increment
+        return GCounter(counters)
+
+    def merge(self, other):
+        merge_counter = {**self.counters, **other.counters}
+        for k in merge_counter.keys():
+            if k in self.counters and k in other.counters:
+                merge_counter[k] = max(self.counters[k], other.counters[k])
+        return GCounter(merge_counter)
+
+    def to_json(self):
+        return json.dumps(self.counters)
+
+    @classmethod
+    def from_json(cls, counters):
+        return GCounter(json.loads(counters))
+
+
+class GCounterServer(Node):
+    def __init__(self):
+        super().__init__()
+
+        self._counters = GCounter()
+        self.lock = threading.RLock()
+
+        self.register_handler("read", self.read_handler)
+        self.register_handler("add", self.add_handler)
+        self.register_handler("replicate", self.replicate_handler)
+
+        self._periodic_tasks.append({"f": self._replicate, "dt": 5})
+
+    def _replicate(self):
+        counter_json = self._counters.to_json()
+        self.log("Replicating set {}", counter_json)
+        for node in self.node_ids:
+            if node != self.node_id:
+                resp_body = {
+                    "type": "replicate",
+                    "value": counter_json,
+                }
+                self.send(node, resp_body)
+
+    async def read_handler(self, req):
+        with self.lock:
+            resp_body = {
+                "type": "read_ok",
+                "value": self._counters.sum(),
+            }
+            self.reply(req, resp_body)
+
+    async def add_handler(self, req):
+        with self.lock:
+            self._counters = self._counters.add(
+                self.node_id, req["body"]["delta"])
+        self.reply(req, {"type": "add_ok"})
+
+    async def replicate_handler(self, req):
+        other = GCounter.from_json(req["body"]["value"])
+        with self.lock:
+            self._counters = self._counters.merge(other)
