@@ -236,3 +236,60 @@ class GCounterServer(Node):
         other = GCounter.from_json(req["body"]["value"])
         with self.lock:
             self._counters = self._counters.merge(other)
+
+
+class PNCounterServer(Node):
+    def __init__(self):
+        super().__init__()
+
+        self._increment = GCounter()
+        self._decrement = GCounter()
+        self.lock = threading.RLock()
+
+        self.register_handler("read", self.read_handler)
+        self.register_handler("add", self.add_handler)
+        self.register_handler("replicate", self.replicate_handler)
+
+        self._periodic_tasks.append({"f": self._replicate, "dt": 5})
+
+    def _replicate(self):
+        inc = self._increment.to_json()
+        dec = self._decrement.to_json()
+        self.log("Replicating set increment {}, decrement {}", inc, dec)
+        for node in self.node_ids:
+            if node != self.node_id:
+                resp_body = {
+                    "type": "replicate",
+                    "value": {
+                        "inc": inc,
+                        "dec": dec,
+                    },
+                }
+                self.send(node, resp_body)
+
+    async def read_handler(self, req):
+        with self.lock:
+            sum = self._increment.sum() - self._decrement.sum()
+            resp_body = {
+                "type": "read_ok",
+                "value": sum,
+            }
+            self.reply(req, resp_body)
+
+    async def add_handler(self, req):
+        delta = req["body"]["delta"]
+        with self.lock:
+            if delta > 0:
+                self._increment = self._increment.add(self.node_id, delta)
+            else:
+                # GCounter values has to be positive because of its merge()
+                # function, which uses max() function.
+                self._decrement = self._decrement.add(self.node_id, -delta)
+        self.reply(req, {"type": "add_ok"})
+
+    async def replicate_handler(self, req):
+        inc = GCounter.from_json(req["body"]["value"]["inc"])
+        dec = GCounter.from_json(req["body"]["value"]["dec"])
+        with self.lock:
+            self._increment = self._increment.merge(inc)
+            self._decrement = self._decrement.merge(dec)
