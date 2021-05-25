@@ -29,3 +29,20 @@ class GCounter:
     @classmethod
     def from_json(cls, counters):
         return GCounter(json.loads(counters))
+
+
+class TxnState:
+    def __init__(self):
+        self._state = {}
+
+    def apply_txn(self, txn):
+        res = []
+        for fn, key, value in txn:
+            if fn == "r":
+                res.append([fn, key, self._state.get(key, [])])
+            if fn == "append":
+                res.append([fn, key, value])
+                s = self._state.get(key, []).copy()
+                s.append(value)
+                self._state[key] = s
+        return res

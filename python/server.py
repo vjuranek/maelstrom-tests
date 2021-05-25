@@ -5,7 +5,7 @@ import threading
 import time
 
 from node import Node
-from transfer_types import GCounter
+from transfer_types import GCounter, TxnState
 
 
 class EchoServer(Node):
@@ -263,3 +263,22 @@ class PNCounterServer(Node):
         with self.lock:
             self._increment = self._increment.merge(inc)
             self._decrement = self._decrement.merge(dec)
+
+
+class TxnServer(Node):
+    def __init__(self):
+        super().__init__()
+
+        self.lock = threading.RLock()
+        self.state = TxnState()
+
+        self.register_handler("txn", self.txn_handler)
+
+    async def txn_handler(self, req):
+        txn = req["body"]["txn"]
+        with self.lock:
+            res = self.state.apply_txn(txn)
+        self.reply(req, {
+            "type": "txn_ok",
+            "txn": res,
+        })

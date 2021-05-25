@@ -9,6 +9,7 @@ from server import (
     GSetServer,
     GCounterServer,
     PNCounterServer,
+    TxnServer,
 )
 
 parser = argparse.ArgumentParser(description="Maelstrom test server")
@@ -17,7 +18,8 @@ parser.add_argument("-w", "--workload", choices=[
     "broadcast",
     "g-set",
     "g-counter",
-    "pn-counter"
+    "pn-counter",
+    "txn",
 ])
 args = parser.parse_args()
 
@@ -32,5 +34,7 @@ if args.workload == "g-counter":
     server = GCounterServer()
 if args.workload == "pn-counter":
     server = PNCounterServer()
+if args.workload == "txn":
+    server = TxnServer()
 
 asyncio.run(server.run())
