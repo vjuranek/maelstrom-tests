@@ -44,9 +44,6 @@ class Node:
         self.send(req["src"], body)
 
     async def run(self):
-        await self.process_lines()
-
-    async def process_lines(self):
         for line in sys.stdin:
             req, body = parse_req(line)
             try:
@@ -54,6 +51,8 @@ class Node:
             except Exception:
                 pass
             else:
+                # TODO: this is synchronous processing of lines. Rewrite to
+                # asynchonous processing.
                 task = asyncio.create_task(handler(req))
                 await task
 
