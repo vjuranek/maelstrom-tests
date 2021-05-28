@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import asyncio
 import threading
 import time
 
@@ -13,7 +12,7 @@ class EchoServer(Node):
         super().__init__()
         self.register_handler("echo", self.echo_handler)
 
-    async def echo_handler(self, req):
+    def echo_handler(self, req):
         body = req["body"]
         resp_body = {
             "type": "echo_ok",
@@ -34,7 +33,7 @@ class BroadcastServer(Node):
         self.register_handler("broadcast", self.broadcast_handler)
         self.register_handler("read", self.read_handler)
 
-    async def topology_handler(self, req):
+    def topology_handler(self, req):
         body = req["body"]
         self.neighbors = body["topology"][self.node_id]
         resp_body = {
@@ -42,7 +41,7 @@ class BroadcastServer(Node):
         }
         self.reply(req, resp_body)
 
-    async def broadcast_handler(self, req):
+    def broadcast_handler(self, req):
         """
         Handler implementing broadcast. Broadcast messages sent by nodes in
         the cluster contain field `internal` set to `True`. It also contains
@@ -74,7 +73,7 @@ class BroadcastServer(Node):
                 self.messages.add(msg)
                 new_msg = True
 
-        async def broadcast_ack_handler(req):
+        def broadcast_ack_handler(req):
             """
             Handler which removes sender from the list of nodes which haven't
             accepted new broadcast message yet.
@@ -109,9 +108,10 @@ class BroadcastServer(Node):
             # This has to be run in separate thread not to block event loop, as
             # in case of network partition, this would block until the
             # connection is re-established.
-            asyncio.gather(asyncio.to_thread(broadcast_neighbors))
+            t = threading.Thread(target=broadcast_neighbors)
+            t.start()
 
-    async def read_handler(self, req):
+    def read_handler(self, req):
         with self.msg_lock:
             resp_body = {
                 "type": "read_ok",
@@ -146,7 +146,7 @@ class GSetServer(Node):
                 }
                 self.send(node, resp_body)
 
-    async def read_handler(self, req):
+    def read_handler(self, req):
         with self.set_lock:
             resp_body = {
                 "type": "read_ok",
@@ -154,12 +154,12 @@ class GSetServer(Node):
             }
             self.reply(req, resp_body)
 
-    async def add_handler(self, req):
+    def add_handler(self, req):
         with self.set_lock:
             self._set.add(req["body"]["element"])
         self.reply(req, {"type": "add_ok"})
 
-    async def replicate_handler(self, req):
+    def replicate_handler(self, req):
         with self.set_lock:
             self._set = self._set.union(req["body"]["value"])
 
@@ -188,7 +188,7 @@ class GCounterServer(Node):
                 }
                 self.send(node, resp_body)
 
-    async def read_handler(self, req):
+    def read_handler(self, req):
         with self.lock:
             resp_body = {
                 "type": "read_ok",
@@ -196,13 +196,13 @@ class GCounterServer(Node):
             }
             self.reply(req, resp_body)
 
-    async def add_handler(self, req):
+    def add_handler(self, req):
         with self.lock:
             self._counters = self._counters.add(
                 self.node_id, req["body"]["delta"])
         self.reply(req, {"type": "add_ok"})
 
-    async def replicate_handler(self, req):
+    def replicate_handler(self, req):
         other = GCounter.from_json(req["body"]["value"])
         with self.lock:
             self._counters = self._counters.merge(other)
@@ -237,7 +237,7 @@ class PNCounterServer(Node):
                 }
                 self.send(node, resp_body)
 
-    async def read_handler(self, req):
+    def read_handler(self, req):
         with self.lock:
             sum = self._increment.sum() - self._decrement.sum()
             resp_body = {
@@ -246,7 +246,7 @@ class PNCounterServer(Node):
             }
             self.reply(req, resp_body)
 
-    async def add_handler(self, req):
+    def add_handler(self, req):
         delta = req["body"]["delta"]
         with self.lock:
             if delta > 0:
@@ -257,7 +257,7 @@ class PNCounterServer(Node):
                 self._decrement = self._decrement.add(self.node_id, -delta)
         self.reply(req, {"type": "add_ok"})
 
-    async def replicate_handler(self, req):
+    def replicate_handler(self, req):
         inc = GCounter.from_json(req["body"]["value"]["inc"])
         dec = GCounter.from_json(req["body"]["value"]["dec"])
         with self.lock:
@@ -274,7 +274,7 @@ class TxnServer(Node):
 
         self.register_handler("txn", self.txn_handler)
 
-    async def txn_handler(self, req):
+    def txn_handler(self, req):
         txn = req["body"]["txn"]
         with self.lock:
             res = self.state.apply_txn(txn)

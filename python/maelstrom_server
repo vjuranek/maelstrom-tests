@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import asyncio
 import argparse
 
 from server import (
@@ -37,4 +36,4 @@ if args.workload == "pn-counter":
 if args.workload == "txn":
     server = TxnServer()
 
-asyncio.run(server.run())
+server.run()

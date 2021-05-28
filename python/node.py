@@ -1,4 +1,3 @@
-import asyncio
 import json
 import sys
 import threading
@@ -43,7 +42,7 @@ class Node:
         }
         self.send(req["src"], body)
 
-    async def run(self):
+    def run(self):
         for line in sys.stdin:
             req, body = parse_req(line)
             try:
@@ -51,10 +50,8 @@ class Node:
             except Exception:
                 pass
             else:
-                # TODO: this is synchronous processing of lines. Rewrite to
-                # asynchonous processing.
-                task = asyncio.create_task(handler(req))
-                await task
+                t = threading.Thread(target=handler, args=(req,))
+                t.start()
 
     def _get_handler(self, body):
         req_type = body["type"]
@@ -76,7 +73,7 @@ class Node:
             raise Exception("Handler for %r already registered" % req_type)
         self._handlers[req_type] = handler
 
-    async def init_handler(self, req):
+    def init_handler(self, req):
         body = req["body"]
         self.node_id = body["node_id"]
         self.node_ids = body["node_ids"]
