@@ -3,6 +3,8 @@ import sys
 import threading
 import time
 
+from transfer_types import ServiceRequest
+
 
 class Node:
     def __init__(self):
@@ -41,6 +43,16 @@ class Node:
             "in_reply_to": req["body"]["msg_id"],
         }
         self.send(req["src"], body)
+
+    def service_rpc(self, dest, body, callback):
+        srv_req = ServiceRequest()
+
+        def callback():
+            srv_req.finish()
+
+        self.send(dest, body, callback)
+        srv_req.wait()
+        return srv_req.value
 
     def run(self):
         for line in sys.stdin:

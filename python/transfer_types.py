@@ -1,4 +1,5 @@
 import json
+import threading
 
 
 class GCounter:
@@ -46,3 +47,30 @@ class TxnState:
                 s.append(value)
                 self._state[key] = s
         return res
+
+
+class ServiceRequest:
+    TIMEOUT = 5
+
+    def __init__(self):
+        self.lock = threading.RLock()
+        self.finish = threading.Event()
+        self.value = None
+
+    def wait(self):
+        self.finish.clear()
+
+        if self.value:
+            return self.value
+
+        self.finish.wait(self.TIMEOUT)
+
+        if self.value:
+            return self.value
+        else:
+            raise Exception("Timeout while waiting for service response.")
+
+    def set(self, value):
+        with self.lock:
+            self.value = value
+            self.finish.set()
