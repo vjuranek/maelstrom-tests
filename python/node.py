@@ -20,11 +20,18 @@ class Node:
         self._periodic_tasks = []
 
     def send(self, dest, body, callback=None, callback_id=None):
-        if callback and callback_id:
-            self._callbacks[callback_id] = callback
-
         with self._lock:
             self.msg_id += 1
+
+            if callback:
+                if callback_id:
+                    self._callbacks[callback_id] = callback
+                else:
+                    self._callbacks[self.msg_id] = callback
+
+            if "msg_id" not in body:
+                body["msg_id"] = self.msg_id
+
             resp = {
                 "src": self.node_id,
                 "dest": dest,
@@ -68,10 +75,14 @@ class Node:
     def _get_handler(self, body):
         req_type = body["type"]
         callback_id = body.get("callback_id")
+        msg_id = body.get("in_reply_to")
 
         if callback_id and callback_id in self._callbacks:
             handler = self._callbacks[callback_id]
             del self._callbacks[callback_id]
+        elif msg_id and msg_id in self._callbacks:
+            handler = self._callbacks[msg_id]
+            del self._callbacks[msg_id]
         else:
             if req_type not in self._handlers:
                 raise Exception(
