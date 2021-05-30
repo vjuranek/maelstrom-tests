@@ -54,8 +54,8 @@ class Node:
     def service_rpc(self, dest, body):
         srv_req = ServiceRequest()
 
-        def callback():
-            srv_req.finish()
+        def callback(req):
+            srv_req.set(req)
 
         self.send(dest, body, callback)
         srv_req.wait()
