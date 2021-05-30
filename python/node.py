@@ -44,7 +44,7 @@ class Node:
         }
         self.send(req["src"], body)
 
-    def service_rpc(self, dest, body, callback):
+    def service_rpc(self, dest, body):
         srv_req = ServiceRequest()
 
         def callback():
