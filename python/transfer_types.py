@@ -33,20 +33,44 @@ class GCounter:
 
 
 class TxnState:
-    def __init__(self):
-        self._state = {}
+    def __init__(self, node):
+        self._node = node
 
     def apply_txn(self, txn):
         res = []
         for fn, key, value in txn:
             if fn == "r":
-                res.append([fn, key, self._state.get(key, [])])
+                res.append([fn, key, self._lin_kv_read(key)])
             if fn == "append":
                 res.append([fn, key, value])
-                s = self._state.get(key, []).copy()
-                s.append(value)
-                self._state[key] = s
+                self._lin_kv_cas(key, value)
         return res
+
+    def _lin_kv_read(self, key):
+        req = {
+            "type": "read",
+            "key": key,
+        }
+        resp = self._node.service_rpc("lin-kv", req)
+        value = resp["body"]["value"] if "value" in resp["body"] else []
+        return value
+
+    def _lin_kv_cas(self, key, value):
+        current = self._lin_kv_read(key)
+        new = current.copy() if current else []
+        new.append(value)
+
+        req = {
+            "type": "cas",
+            "key": key,
+            "from": current,
+            "to": new,
+            "create_if_not_exists": True,
+        }
+        resp = self._node.service_rpc("lin-kv", req)
+        if resp["body"]["type"] != "cas_ok":
+            raise Exception("CAS operation failed, node: {}, key: {}". format(
+                self._node.node_id, key))
 
 
 class ServiceRequest:

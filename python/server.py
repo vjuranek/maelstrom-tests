@@ -268,7 +268,7 @@ class TxnServer(Node):
         super().__init__()
 
         self.lock = threading.RLock()
-        self.state = TxnState()
+        self.state = TxnState(self)
 
         self.register_handler("txn", self.txn_handler)
 
