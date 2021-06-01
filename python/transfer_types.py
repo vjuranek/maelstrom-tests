@@ -33,17 +33,15 @@ class GCounter:
 
 
 class TxnState:
+    KEY = "root"
+
     def __init__(self, node):
         self._node = node
 
     def apply_txn(self, txn):
-        res = []
-        for fn, key, value in txn:
-            if fn == "r":
-                res.append([fn, key, self._lin_kv_read(key)])
-            if fn == "append":
-                res.append([fn, key, value])
-                self._lin_kv_cas(key, value)
+        current_db = DbNode.from_json(self._lin_kv_read(self.KEY))
+        new_db, res = current_db.apply_txn(txn)
+        self._lin_kv_cas(self.KEY, new_db)
         return res
 
     def _lin_kv_read(self, key):
@@ -98,3 +96,35 @@ class ServiceRequest:
         with self.lock:
             self.value = value
             self.finish.set()
+
+
+class DbNode:
+
+    def __init__(self, db={}):
+        self._db = db
+
+    def to_json(self):
+        return json.dumps(self._db)
+
+    def from_json(self, db_json="{}"):
+        return DbNode(json.loads(db_json))
+
+    def get(self, key):
+        return self._db.get(key)
+
+    def append(self, key, value):
+        new_db = self._db.copy()
+        new_db[key] = value
+        return new_db
+
+    def apply_txn(self, txn):
+        res = []
+        for fn, key, value in txn:
+            if fn == "r":
+                res.append([fn, key, self._db.get(key)])
+            if fn == "append":
+                res.append([fn, key, value])
+                new_db_value = self._db[key] if key in self._db else []
+                new_db_value.append(value)
+                self._db[key] = new_db_value
+        return [self._db, res]
