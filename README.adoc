@@ -14,6 +14,6 @@ See https://github.com/jepsen-io/maelstrom/blob/main/doc/workloads.md[Maelstrom 
 * `lein run test -w echo --bin /home/vjuranek/maelstrom-tests/python/maelstrom_server  --time-limit 10 --log-stderr --nodes n1,n2,n3 -- -w echo`
 * `lein run test -w broadcast --bin /home/vjuranek/maelstrom-tests/python/maelstrom_server  --time-limit 10 --log-stderr --nemesis partition -- -w broadcast`
 * `lein run test -w g-set --bin /home/vjuranek/maelstrom-tests/python/maelstrom_server --time-limit 10 --log-stderr  -- -w g-set`
-* `lein run test -w g-counter --bin /home/vjuranek/maelstrom-tests/python/maelstrom_server --time-limit 10 --log-stderr  -- -w g-counter `
+* `lein run test -w g-counter --bin /home/vjuranek/maelstrom-tests/python/maelstrom_server --time-limit 10 --log-stderr  -- -w g-counter`
 * `lein run test -w pn-counter --bin /home/vjuranek/maelstrom-tests/python/maelstrom_server --time-limit 30 --log-stderr  -- -w pn-counter`
-* `lein run test -w g-counter --bin /home/vjuranek/maelstrom-tests/python/maelstrom_server --time-limit 10 --log-stderr  -- -w g-counter `
+* `lein run test -w g-counter --bin /home/vjuranek/maelstrom-tests/python/maelstrom_server --time-limit 10 --log-stderr  -- -w g-counter`
