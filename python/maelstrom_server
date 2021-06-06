@@ -35,5 +35,7 @@ if args.workload == "pn-counter":
     server = PNCounterServer()
 if args.workload == "txn":
     server = TxnServer()
+if not server:
+    raise Exception("Unknown workload {!r}".format(args.workload))
 
 server.run()
