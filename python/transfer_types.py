@@ -41,7 +41,7 @@ class TxnState:
     def apply_txn(self, txn):
         current_db = DbNode.from_json(self._lin_kv_read(self.KEY))
         new_db, res = current_db.apply_txn(txn)
-        self._lin_kv_cas(self.KEY, new_db)
+        self._lin_kv_cas(self.KEY, new_db.to_json())
         return res
 
     def _lin_kv_read(self, key):
@@ -124,7 +124,5 @@ class DbNode:
                 res.append([fn, key, self._db.get(key)])
             if fn == "append":
                 res.append([fn, key, value])
-                new_db_value = self._db[key] if key in self._db else []
-                new_db_value.append(value)
-                self._db[key] = new_db_value
-        return [self._db, res]
+                self._db[key] = value
+        return [self, res]
