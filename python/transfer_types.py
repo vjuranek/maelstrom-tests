@@ -124,5 +124,7 @@ class DbNode:
                 res.append([fn, key, self._db.get(key)])
             if fn == "append":
                 res.append([fn, key, value])
-                self._db[key] = value
+                value_list = self._db[key].copy() if key in self._db else []
+                value_list.append(value)
+                self._db[key] = value_list
         return [self, res]
