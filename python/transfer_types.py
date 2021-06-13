@@ -52,8 +52,7 @@ class TxnState:
             "key": key,
         }
         resp = self._node.service_rpc("lin-kv", req)
-        value = resp["body"]["value"] if "value" in resp["body"] else []
-        return value
+        return resp["body"].get("value")
 
     def _lin_kv_cas(self, key, value):
         current = self._lin_kv_read(key)
