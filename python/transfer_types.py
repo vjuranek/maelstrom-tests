@@ -40,8 +40,10 @@ class TxnState:
 
     def apply_txn(self, txn):
         current_db = DbNode.from_json(self._lin_kv_read(self.KEY))
-        new_db, res = current_db.apply_txn(txn)
-        self._lin_kv_cas(self.KEY, new_db.to_json())
+        new_db = current_db.copy()
+        new_db, res = new_db.apply_txn(txn)
+        if current_db != new_db:
+            self._lin_kv_cas(self.KEY, new_db.to_json())
         return res
 
     def _lin_kv_read(self, key):
@@ -103,6 +105,9 @@ class DbNode:
     def __init__(self, db={}):
         self._db = db
 
+    def copy(self):
+        return DbNode(self._db.copy())
+
     def to_json(self):
         return json.dumps(self._db)
 
@@ -130,3 +135,8 @@ class DbNode:
             else:
                 raise Exception("Unknown TXN operation {!r}".format(fn))
         return [self, res]
+
+    def __eq__(self, other):
+        if not isinstance(other, DbNode):
+            return False
+        return self._db == other._db
