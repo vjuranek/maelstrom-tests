@@ -109,7 +109,8 @@ class DbNode:
     def to_json(self):
         return json.dumps(self._db)
 
-    def from_json(self, db_json="{}"):
+    @classmethod
+    def from_json(cls, db_json):
         return DbNode(json.loads(db_json))
 
     def get(self, key):
