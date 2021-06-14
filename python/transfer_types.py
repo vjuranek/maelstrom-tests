@@ -39,11 +39,14 @@ class TxnState:
         self._node = node
 
     def apply_txn(self, txn):
-        current_db = DbNode.from_json(self._lin_kv_read(self.KEY))
+        curr_json = self._lin_kv_read(self.KEY) or "{}"
+        current_db = DbNode.from_json(curr_json)
+        if current_db is None:
+            current_db = DbNode()
         new_db = current_db.copy()
         new_db, res = new_db.apply_txn(txn)
         if current_db != new_db:
-            self._lin_kv_cas(self.KEY, new_db.to_json())
+            self._lin_kv_cas(self.KEY, current_db.to_json(), new_db.to_json())
         return res
 
     def _lin_kv_read(self, key):
@@ -54,11 +57,7 @@ class TxnState:
         resp = self._node.service_rpc("lin-kv", req)
         return resp["body"].get("value")
 
-    def _lin_kv_cas(self, key, value):
-        current = self._lin_kv_read(key)
-        new = current.copy() if current else []
-        new.append(value)
-
+    def _lin_kv_cas(self, key, current, new):
         req = {
             "type": "cas",
             "key": key,
@@ -68,8 +67,8 @@ class TxnState:
         }
         resp = self._node.service_rpc("lin-kv", req)
         if resp["body"]["type"] != "cas_ok":
-            raise Exception("CAS operation failed, node: {}, key: {}". format(
-                self._node.node_id, key))
+            raise Exception("CAS operation failed: {!r}". format(
+                resp["body"]["text"]))
 
 
 class ServiceRequest:
