@@ -125,9 +125,11 @@ class DbNode:
         res = []
         for fn, key, value in txn:
             if fn == "r":
-                res.append([fn, key, self._db.get(key)])
+                res.append([fn, key, self._db.get(str(key))])
             elif fn == "append":
                 res.append([fn, key, value])
+                # DB is dict str -> list.
+                key = str(key)
                 value_list = self._db[key].copy() if key in self._db else []
                 value_list.append(value)
                 self._db[key] = value_list
