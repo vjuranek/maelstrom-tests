@@ -1,3 +1,6 @@
+import json
+
+
 class MaelstromError(Exception):
     err_no = None
 
@@ -6,6 +9,16 @@ class MaelstromError(Exception):
 
     def __str__(self):
         return self.msg.format(self=self)
+
+    def to_dict(self):
+        return {
+            "type": "error",
+            "number": self.err_no,
+            "reason": self.msg,
+        }
+
+    def to_json(self):
+        return json.dumps(self.to_dict())
 
 
 class TimeoutError(MaelstromError):

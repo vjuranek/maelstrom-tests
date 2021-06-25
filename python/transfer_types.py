@@ -1,6 +1,8 @@
 import json
 import threading
 
+from errors import TxnConflictError
+
 
 class GCounter:
     def __init__(self, counters=dict()):
@@ -67,8 +69,7 @@ class TxnState:
         }
         resp = self._node.service_rpc("lin-kv", req)
         if resp["body"]["type"] != "cas_ok":
-            raise Exception("CAS operation failed: {!r}". format(
-                resp["body"]["text"]))
+            raise TxnConflictError(resp["body"]["text"])
 
 
 class ServiceRequest:

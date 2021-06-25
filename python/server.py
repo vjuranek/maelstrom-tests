@@ -1,6 +1,7 @@
 import threading
 import time
 
+from errors import MaelstromError
 from node import Node
 from transfer_types import GCounter, TxnState
 
@@ -275,8 +276,12 @@ class TxnServer(Node):
     def txn_handler(self, req):
         txn = req["body"]["txn"]
         with self.lock:
-            res = self.state.apply_txn(txn)
-        self.reply(req, {
-            "type": "txn_ok",
-            "txn": res,
-        })
+            try:
+                res = self.state.apply_txn(txn)
+            except MaelstromError as e:
+                self.reply(req, e.to_dict())
+            else:
+                self.reply(req, {
+                    "type": "txn_ok",
+                    "txn": res,
+                })
