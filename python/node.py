@@ -125,6 +125,19 @@ class Node:
             sys.stderr.flush()
 
 
+class MonotonicId:
+
+    def __init__(self, node_id):
+        self._node_id = node_id
+        self._lock = threading.RLock()
+        self._id = None
+
+    def next(self):
+        with self._lock:
+            self._id += 1
+        return "{}-{}".format(self._node_id, self._id)
+
+
 def parse_req(line):
     req = json.loads(line)
     body = req["body"]
