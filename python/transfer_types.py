@@ -1,7 +1,9 @@
 import json
 import threading
 
+from errors import AbortError
 from errors import TxnConflictError
+from node import MonotonicId
 
 
 class GCounter:
@@ -142,3 +144,42 @@ class DbNode:
         if not isinstance(other, DbNode):
             return False
         return self._db == other._db
+
+
+class Thunk:
+    SVC = "lin-kv"
+
+    def __init__(self, node, id, value, saved):
+        self.node = node
+        self.id = id
+        self.value = value
+        self.saved = saved
+        self.id_gen = MonotonicId(node.node_id)
+
+    def id(self):
+        return self.id if self.id else self.id_gen.next()
+
+    def value(self):
+        if not self.value:
+            body = {
+                "type": "read",
+                "key": self.id(),
+            }
+            resp = self.node.service_rpc(self.SVC, body)
+            self.value = resp["body"]["value"]
+
+        return self.value
+
+    def save(self):
+        if not self.saved:
+            body = {
+                "type": "write",
+                "key": self.id(),
+                "value": self.value,
+            }
+            resp = self.node.service_rpc(self.SVC, body)
+
+            if resp["body"]["type"] == "write_ok":
+                self.saved = True
+            else:
+                raise AbortError("Unable to save thunk {}".format(self.id()))
