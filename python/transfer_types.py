@@ -142,3 +142,14 @@ class DbNode:
         if not isinstance(other, DbNode):
             return False
         return self._db == other._db
+
+
+class Thunk():
+    SVC = "lin-kv"
+
+    def __init__(self, node, id, value, saved):
+        self.node = node
+        self.id = id
+        self.value = value
+        self.saved = saved
+
