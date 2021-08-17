@@ -115,8 +115,11 @@ class DbNode:
 
     def to_json(self):
         db_map = {}
-        for key, thunk in self._map.items():
-            db_map[key] = thunk.id()
+        for key, thunks in self._map.items():
+            thunks_ids = []
+            for thunk in thunks:
+                thunks_ids.append(thunk.id())
+            db_map[key] = thunks_ids
         return json.dumps(db_map)
 
     @classmethod
@@ -124,44 +127,41 @@ class DbNode:
         db_map = {}
         pairs = json.loads(db_json)
         if pairs:
-            for key, id in pairs.items():
-                db_map[key] = Thunk(node, id, None, True)
+            for key, thunk_ids in pairs.items():
+                thunks = []
+                for id in thunk_ids:
+                    thunks.append(Thunk(node, id, None, True))
+                db_map[key] = thunks
         return DbNode(node, id_gen, db_map)
 
     def save(self):
-        for thunk in self._map.values():
-            thunk.save()
+        for thunks in self._map.values():
+            for thunk in thunks:
+                thunk.save()
 
     def get(self, key):
-        thunk = self._map.get(key)
-        if thunk:
-            return thunk.value()
-
-    # def append(self, key, value):
-    #     thunk = Thunk(self.node, self.id_gen.next(), value, False)
-    #     new_db = self._map.copy()
-    #     new_db[key] = thunk
-    #     return DbNode(self.node, self.id_gen, new_db)
+        thunks = self._map.get(key)
+        if thunks:
+            values = []
+            for thunk in thunks:
+                values.append(thunk.value())
+            return values
 
     def apply_txn(self, txn):
         res = []
         for fn, key, value in txn:
             if fn == "r":
-                v = self.get(str(key))
-                res.append([fn, key, [v] if v else []])
+                res.append([fn, key, self.get(str(key))])
             elif fn == "append":
                 res.append([fn, key, value])
                 # DB is dict str -> list.
                 key = str(key)
-                # value_list = self._map[key].copy() if key in self._map else []
-                # value_list.append(value)
-                # self._map[key] = value_list
-                # value_list.append(value)
-                # self._map[key] = value_list
-                new_map = self._map.copy()
-                new_map[key] = Thunk(
+
+                value_list = self._map[key].copy() if key in self._map else []
+                thunk = Thunk(
                     self.node, self.id_gen.next(), value, False)
-                self._map = new_map
+                value_list.append(thunk)
+                self._map[key] = value_list
             else:
                 raise Exception("Unknown TXN operation {!r}".format(fn))
         return [self, res]
