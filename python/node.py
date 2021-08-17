@@ -96,6 +96,9 @@ class Node:
             raise Exception("Handler for %r already registered" % req_type)
         self._handlers[req_type] = handler
 
+    def post_init(self):
+        pass
+
     def init_handler(self, req):
         body = req["body"]
         self.node_id = body["node_id"]
@@ -106,6 +109,7 @@ class Node:
         }
         self.reply(req, resp_body)
         self.start_periodic_tasks()
+        self.post_init()
 
     def start_periodic_tasks(self):
         for task in self._periodic_tasks:

@@ -3,7 +3,7 @@ import time
 
 from errors import MaelstromError
 from node import Node
-from transfer_types import GCounter, TxnState
+from transfer_types import GCounter, TxnState, MonotonicId
 
 
 class EchoServer(Node):
@@ -269,9 +269,14 @@ class TxnServer(Node):
         super().__init__()
 
         self.lock = threading.RLock()
-        self.state = TxnState(self)
+        self._id_gen = None
+        self.state = None
 
         self.register_handler("txn", self.txn_handler)
+
+    def post_init(self):
+        self._id_gen = MonotonicId(self.node_id)
+        self.state = TxnState(self, self._id_gen)
 
     def txn_handler(self, req):
         txn = req["body"]["txn"]

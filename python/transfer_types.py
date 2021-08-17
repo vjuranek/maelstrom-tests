@@ -36,18 +36,21 @@ class GCounter:
 
 
 class TxnState:
+    SERVICE = "lin-kv"
     KEY = "root"
 
-    def __init__(self, node):
+    def __init__(self, node, id_gen):
         self._node = node
+        self.id_gen = id_gen
 
     def apply_txn(self, txn):
         curr_json = self._lin_kv_read(self.KEY) or "{}"
-        current_db = DbNode.from_json(curr_json)
+        current_db = DbNode.from_json(self._node, self.id_gen, curr_json)
         if current_db is None:
-            current_db = DbNode()
+            current_db = DbNode(self._node, self.id_gen)
         new_db = current_db.copy()
         new_db, res = new_db.apply_txn(txn)
+        new_db.save()
         if current_db != new_db:
             self._lin_kv_cas(self.KEY, current_db.to_json(), new_db.to_json())
         return res
@@ -57,7 +60,7 @@ class TxnState:
             "type": "read",
             "key": key,
         }
-        resp = self._node.service_rpc("lin-kv", req)
+        resp = self._node.service_rpc(self.SERVICE, req)
         return resp["body"].get("value")
 
     def _lin_kv_cas(self, key, current, new):
@@ -68,7 +71,7 @@ class TxnState:
             "to": new,
             "create_if_not_exists": True,
         }
-        resp = self._node.service_rpc("lin-kv", req)
+        resp = self._node.service_rpc(self.SERVICE, req)
         if resp["body"]["type"] != "cas_ok":
             raise TxnConflictError(resp["body"]["text"])
 
@@ -108,24 +111,25 @@ class DbNode:
         self._map = map
 
     def copy(self):
-        return DbNode(self._map.copy())
+        return DbNode(self.node, self.id_gen, self._map.copy())
 
     def to_json(self):
         db_map = {}
-        for key, thunk in self._map:
+        for key, thunk in self._map.items():
             db_map[key] = thunk.id()
         return json.dumps(db_map)
 
     @classmethod
     def from_json(cls, node, id_gen, db_json):
-        pairs = json.loads(db_json)
         db_map = {}
-        for key, id in pairs:
-            db_map[key] = Thunk(node, id, None, True)
+        pairs = json.loads(db_json)
+        if pairs:
+            for key, id in pairs.items():
+                db_map[key] = Thunk(node, id, None, True)
         return DbNode(node, id_gen, db_map)
 
     def save(self):
-        for thunk in self._map:
+        for thunk in self._map.values():
             thunk.save()
 
     def get(self, key):
@@ -133,24 +137,31 @@ class DbNode:
         if thunk:
             return thunk.value()
 
-    def append(self, key, value):
-        thunk = Thunk(self.node, self.id_gen.next(), value, False)
-        new_db = self._map.copy()
-        new_db[key] = thunk
-        return DbNode(self.node, self.id_gen, new_db)
+    # def append(self, key, value):
+    #     thunk = Thunk(self.node, self.id_gen.next(), value, False)
+    #     new_db = self._map.copy()
+    #     new_db[key] = thunk
+    #     return DbNode(self.node, self.id_gen, new_db)
 
     def apply_txn(self, txn):
         res = []
         for fn, key, value in txn:
             if fn == "r":
-                res.append([fn, key, self._map.get(str(key))])
+                v = self.get(str(key))
+                res.append([fn, key, [v] if v else []])
             elif fn == "append":
                 res.append([fn, key, value])
                 # DB is dict str -> list.
                 key = str(key)
-                value_list = self._map[key].copy() if key in self._map else []
-                value_list.append(value)
-                self._map[key] = value_list
+                # value_list = self._map[key].copy() if key in self._map else []
+                # value_list.append(value)
+                # self._map[key] = value_list
+                # value_list.append(value)
+                # self._map[key] = value_list
+                new_map = self._map.copy()
+                new_map[key] = Thunk(
+                    self.node, self.id_gen.next(), value, False)
+                self._map = new_map
             else:
                 raise Exception("Unknown TXN operation {!r}".format(fn))
         return [self, res]
@@ -166,7 +177,7 @@ class MonotonicId:
     def __init__(self, node_id):
         self._node_id = node_id
         self._lock = threading.RLock()
-        self._id = None
+        self._id = 0
 
     def next(self):
         with self._lock:
@@ -175,39 +186,42 @@ class MonotonicId:
 
 
 class Thunk:
-    SVC = "lin-kv"
+    SERVICE = "lin-kv"
 
     def __init__(self, node, id, value, saved):
         self.node = node
-        self.id = id
-        self.value = value
+        self._id = id
+        self._value = value
         self.saved = saved
-        self.id_gen = MonotonicId(node.node_id)
+
+    def __str__(self):
+        "id: {}, value: {}, saved: {}".format(
+            self._id, self._value, self.saved)
 
     def id(self):
-        return self.id if self.id else self.id_gen.next()
+        return self._id
 
     def value(self):
-        if not self.value:
+        if not self._value:
             body = {
                 "type": "read",
-                "key": self.id(),
+                "key": self._id,
             }
-            resp = self.node.service_rpc(self.SVC, body)
-            self.value = resp["body"]["value"]
+            resp = self.node.service_rpc(self.SERVICE, body)
+            self._value = resp["body"]["value"]
 
-        return self.value
+        return self._value
 
     def save(self):
         if not self.saved:
             body = {
                 "type": "write",
                 "key": self.id(),
-                "value": self.value,
+                "value": self._value,
             }
-            resp = self.node.service_rpc(self.SVC, body)
+            resp = self.node.service_rpc(self.SERVICE, body)
 
             if resp["body"]["type"] == "write_ok":
                 self.saved = True
             else:
-                raise AbortError("Unable to save thunk {}".format(self.id()))
+                raise AbortError("Unable to save thunk {}".format(self._id()))
