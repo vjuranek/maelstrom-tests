@@ -150,13 +150,13 @@ class DbNode:
     def apply_txn(self, txn):
         res = []
         for fn, key, value in txn:
+            # DB is dict str -> list.
+            key = str(key)
+
             if fn == "r":
-                res.append([fn, key, self.get(str(key))])
+                res.append([fn, key, self.get(key)])
             elif fn == "append":
                 res.append([fn, key, value])
-                # DB is dict str -> list.
-                key = str(key)
-
                 value_list = self._map[key].copy() if key in self._map else []
                 thunk = Thunk(
                     self.node, self.id_gen.next(), value, False)
@@ -193,10 +193,6 @@ class Thunk:
         self._id = id
         self._value = value
         self.saved = saved
-
-    def __str__(self):
-        "id: {}, value: {}, saved: {}".format(
-            self._id, self._value, self.saved)
 
     def id(self):
         return self._id
