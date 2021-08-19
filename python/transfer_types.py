@@ -197,6 +197,13 @@ class Thunk:
     def id(self):
         return self._id
 
+    def to_json(self):
+        return self._value
+
+    @classmethod
+    def from_json(cls, value_json):
+        return value_json
+
     def value(self):
         if not self._value:
             body = {
@@ -204,7 +211,7 @@ class Thunk:
                 "key": self._id,
             }
             resp = self.node.service_rpc(self.SERVICE, body)
-            self._value = resp["body"]["value"]
+            self._value = Thunk.from_json(resp["body"]["value"])
 
         return self._value
 
@@ -213,7 +220,7 @@ class Thunk:
             body = {
                 "type": "write",
                 "key": self.id(),
-                "value": self._value,
+                "value": self.to_json(),
             }
             resp = self.node.service_rpc(self.SERVICE, body)
 
