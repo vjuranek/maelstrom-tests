@@ -103,6 +103,64 @@ class ServiceRequest:
             self.finish.set()
 
 
+class MonotonicId:
+
+    def __init__(self, node_id):
+        self._node_id = node_id
+        self._lock = threading.RLock()
+        self._id = 0
+
+    def next(self):
+        with self._lock:
+            self._id += 1
+        return "{}-{}".format(self._node_id, self._id)
+
+
+class Thunk:
+    SERVICE = "lin-kv"
+
+    def __init__(self, node, id, value, saved):
+        self.node = node
+        self._id = id
+        self._value = value
+        self.saved = saved
+
+    def id(self):
+        return self._id
+
+    def to_json(self):
+        return self._value
+
+    @classmethod
+    def from_json(cls, value_json):
+        return value_json
+
+    def value(self):
+        if not self._value:
+            body = {
+                "type": "read",
+                "key": self._id,
+            }
+            resp = self.node.service_rpc(self.SERVICE, body)
+            self._value = Thunk.from_json(resp["body"]["value"])
+
+        return self._value
+
+    def save(self):
+        if not self.saved:
+            body = {
+                "type": "write",
+                "key": self.id(),
+                "value": self.to_json(),
+            }
+            resp = self.node.service_rpc(self.SERVICE, body)
+
+            if resp["body"]["type"] == "write_ok":
+                self.saved = True
+            else:
+                raise AbortError("Unable to save thunk {}".format(self._id()))
+
+
 class DbNode:
 
     def __init__(self, node, id_gen, map={}):
@@ -170,61 +228,3 @@ class DbNode:
         if not isinstance(other, DbNode):
             return False
         return self._map == other._map
-
-
-class MonotonicId:
-
-    def __init__(self, node_id):
-        self._node_id = node_id
-        self._lock = threading.RLock()
-        self._id = 0
-
-    def next(self):
-        with self._lock:
-            self._id += 1
-        return "{}-{}".format(self._node_id, self._id)
-
-
-class Thunk:
-    SERVICE = "lin-kv"
-
-    def __init__(self, node, id, value, saved):
-        self.node = node
-        self._id = id
-        self._value = value
-        self.saved = saved
-
-    def id(self):
-        return self._id
-
-    def to_json(self):
-        return self._value
-
-    @classmethod
-    def from_json(cls, value_json):
-        return value_json
-
-    def value(self):
-        if not self._value:
-            body = {
-                "type": "read",
-                "key": self._id,
-            }
-            resp = self.node.service_rpc(self.SERVICE, body)
-            self._value = Thunk.from_json(resp["body"]["value"])
-
-        return self._value
-
-    def save(self):
-        if not self.saved:
-            body = {
-                "type": "write",
-                "key": self.id(),
-                "value": self.to_json(),
-            }
-            resp = self.node.service_rpc(self.SERVICE, body)
-
-            if resp["body"]["type"] == "write_ok":
-                self.saved = True
-            else:
-                raise AbortError("Unable to save thunk {}".format(self._id()))
