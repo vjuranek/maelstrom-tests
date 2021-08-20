@@ -44,15 +44,19 @@ class TxnState:
         self.id_gen = id_gen
 
     def apply_txn(self, txn):
-        curr_json = self._lin_kv_read(self.KEY) or "{}"
-        current_db = DbNode.from_json(self._node, self.id_gen, curr_json)
-        if current_db is None:
-            current_db = DbNode(self._node, self.id_gen)
-        new_db = current_db.copy()
-        new_db, res = new_db.apply_txn(txn)
-        new_db.save()
+        db_node_id = self._lin_kv_read(self.KEY)
+        if db_node_id:
+            current_db = DbNode(
+                self._node, self.id_gen, db_node_id, None, True)
+        else:
+            current_db = DbNode(
+                self._node, self.id_gen, self.id_gen.next(), {}, False)
+
+        #new_db = current_db.copy()
+        new_db, res = current_db.apply_txn(txn)
         if current_db != new_db:
-            self._lin_kv_cas(self.KEY, current_db.to_json(), new_db.to_json())
+            new_db.save()
+            self._lin_kv_cas(self.KEY, current_db.id(), new_db.id())
         return res
 
     def _lin_kv_read(self, key):
@@ -131,18 +135,17 @@ class Thunk:
     def to_json(self):
         return self._value
 
-    @classmethod
-    def from_json(cls, value_json):
+    def from_json(self, value_json):
         return value_json
 
     def value(self):
-        if not self._value:
+        if self._value is None:
             body = {
                 "type": "read",
                 "key": self._id,
             }
             resp = self.node.service_rpc(self.SERVICE, body)
-            self._value = Thunk.from_json(resp["body"]["value"])
+            self._value = self.from_json(resp["body"]["value"])
 
         return self._value
 
@@ -161,44 +164,45 @@ class Thunk:
                 raise AbortError("Unable to save thunk {}".format(self._id()))
 
 
-class DbNode:
+class DbNode(Thunk):
 
-    def __init__(self, node, id_gen, map={}):
-        self.node = node
+    def __init__(self, node, id_gen, id, value, saved):
+        super().__init__(node, id, value, saved)
         self.id_gen = id_gen
-        self._map = map
 
-    def copy(self):
-        return DbNode(self.node, self.id_gen, self._map.copy())
+    # def copy(self):
+    #     value = self._value.copy() if self._value is not None else None
+    #     return DbNode(
+    #         self.node, self.id_gen, self.id(), value, False)
 
     def to_json(self):
         db_map = {}
-        for key, thunks in self._map.items():
+        for key, thunks in self.value().items():
             thunks_ids = []
             for thunk in thunks:
                 thunks_ids.append(thunk.id())
             db_map[key] = thunks_ids
         return json.dumps(db_map)
 
-    @classmethod
-    def from_json(cls, node, id_gen, db_json):
+    def from_json(self, db_json):
         db_map = {}
         pairs = json.loads(db_json)
         if pairs:
             for key, thunk_ids in pairs.items():
                 thunks = []
                 for id in thunk_ids:
-                    thunks.append(Thunk(node, id, None, True))
+                    thunks.append(Thunk(self.node, id, None, True))
                 db_map[key] = thunks
-        return DbNode(node, id_gen, db_map)
+        return db_map
 
     def save(self):
-        for thunks in self._map.values():
+        for thunks in self._value.values():
             for thunk in thunks:
                 thunk.save()
+            super().save()
 
     def get(self, key):
-        thunks = self._map.get(key)
+        thunks = self.value().get(key)
         if thunks:
             values = []
             for thunk in thunks:
@@ -206,25 +210,39 @@ class DbNode:
             return values
 
     def apply_txn(self, txn):
+        new_value = None
         res = []
         for fn, key, value in txn:
-            # DB is dict str -> list.
-            key = str(key)
-
             if fn == "r":
-                res.append([fn, key, self.get(key)])
+                res.append([fn, key, self.get(str(key))])
             elif fn == "append":
                 res.append([fn, key, value])
-                value_list = self._map[key].copy() if key in self._map else []
+
+                # DB is dict str -> list.
+                key = str(key)
+
+                new_value = self.value().copy()
+                value_list = new_value.get(key, [])
                 thunk = Thunk(
                     self.node, self.id_gen.next(), value, False)
                 value_list.append(thunk)
-                self._map[key] = value_list
+                new_value[key] = value_list
+                self._value[key] = value_list
             else:
                 raise Exception("Unknown TXN operation {!r}".format(fn))
-        return [self, res]
+
+        if new_value is not None:
+            db_node = DbNode(
+                self.node,
+                self.id_gen,
+                self.id_gen.next(),
+                new_value,
+                False)
+        else:
+            db_node = self
+        return [db_node, res]
 
     def __eq__(self, other):
         if not isinstance(other, DbNode):
             return False
-        return self._map == other._map
+        return self.id() == other.id()
