@@ -52,7 +52,6 @@ class TxnState:
             current_db = DbNode(
                 self._node, self.id_gen, self.id_gen.next(), {}, False)
 
-        #new_db = current_db.copy()
         new_db, res = current_db.apply_txn(txn)
         if current_db != new_db:
             new_db.save()
@@ -170,11 +169,6 @@ class DbNode(Thunk):
         super().__init__(node, id, value, saved)
         self.id_gen = id_gen
 
-    # def copy(self):
-    #     value = self._value.copy() if self._value is not None else None
-    #     return DbNode(
-    #         self.node, self.id_gen, self.id(), value, False)
-
     def to_json(self):
         db_map = {}
         for key, thunks in self.value().items():
@@ -213,21 +207,20 @@ class DbNode(Thunk):
         new_value = None
         res = []
         for fn, key, value in txn:
+            # DB is dict str -> list.
+            db_key = str(key)
+
             if fn == "r":
-                res.append([fn, key, self.get(str(key))])
+                res.append([fn, key, self.get(db_key)])
             elif fn == "append":
                 res.append([fn, key, value])
-
-                # DB is dict str -> list.
-                key = str(key)
-
                 new_value = self.value().copy()
-                value_list = new_value.get(key, [])
+                value_list = new_value.get(db_key, [])
                 thunk = Thunk(
                     self.node, self.id_gen.next(), value, False)
                 value_list.append(thunk)
-                new_value[key] = value_list
-                self._value[key] = value_list
+                new_value[db_key] = value_list
+                self._value[db_key] = value_list
             else:
                 raise Exception("Unknown TXN operation {!r}".format(fn))
 
