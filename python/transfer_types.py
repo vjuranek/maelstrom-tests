@@ -144,7 +144,10 @@ class Thunk:
                 "key": self._id,
             }
             resp = self.node.service_rpc(self.SERVICE, body)
-            self._value = self.from_json(resp["body"]["value"])
+            try:
+                self._value = self.from_json(resp["body"]["value"])
+            except KeyError:
+                self._value = {}
 
         return self._value
 
@@ -204,7 +207,6 @@ class DbNode(Thunk):
             return values
 
     def apply_txn(self, txn):
-        new_value = None
         res = []
         for fn, key, value in txn:
             # DB is dict str -> list.
@@ -214,25 +216,21 @@ class DbNode(Thunk):
                 res.append([fn, key, self.get(db_key)])
             elif fn == "append":
                 res.append([fn, key, value])
-                new_value = self.value().copy()
-                value_list = new_value.get(db_key, [])
                 thunk = Thunk(
                     self.node, self.id_gen.next(), value, False)
-                value_list.append(thunk)
-                new_value[db_key] = value_list
-                self._value[db_key] = value_list
+                cur_list = self.value().get(db_key, [])
+                cur_list.append(thunk)
+                self._value[db_key] = cur_list
             else:
                 raise Exception("Unknown TXN operation {!r}".format(fn))
 
-        if new_value is not None:
-            db_node = DbNode(
-                self.node,
-                self.id_gen,
-                self.id_gen.next(),
-                new_value,
-                False)
-        else:
-            db_node = self
+        db_node = DbNode(
+            self.node,
+            self.id_gen,
+            self.id_gen.next(),
+            self.value(),
+            False)
+
         return [db_node, res]
 
     def __eq__(self, other):
