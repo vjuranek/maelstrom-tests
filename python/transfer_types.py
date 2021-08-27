@@ -1,5 +1,6 @@
 import json
 import threading
+import time
 
 from errors import AbortError
 from errors import TxnConflictError
@@ -120,7 +121,7 @@ class MonotonicId:
 
 
 class Thunk:
-    SERVICE = "lin-kv"
+    SERVICE = "lww-kv"
 
     def __init__(self, node, id, value, saved):
         self.node = node
@@ -139,15 +140,16 @@ class Thunk:
 
     def value(self):
         if self._value is None:
-            body = {
-                "type": "read",
-                "key": self._id,
-            }
-            resp = self.node.service_rpc(self.SERVICE, body)
-            try:
-                self._value = self.from_json(resp["body"]["value"])
-            except KeyError:
-                self._value = {}
+            while not self._value:
+                body = {
+                    "type": "read",
+                    "key": self._id,
+                }
+                resp = self.node.service_rpc(self.SERVICE, body)
+                if resp["body"]["type"] == "read_ok":
+                    self._value = self.from_json(resp["body"]["value"])
+                else:
+                    time.sleep(0.1)
 
         return self._value
 
