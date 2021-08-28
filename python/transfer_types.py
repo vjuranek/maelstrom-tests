@@ -46,8 +46,11 @@ class TxnState:
     def apply_txn(self, txn):
         db_node_id = self._lin_kv_read(self.KEY)
         if db_node_id:
-            current_db = DbNode(
-                self._node, self.id_gen, db_node_id, None, True)
+            current_db = Thunk.cached(db_node_id)
+            if not current_db:
+                current_db = DbNode(
+                    self._node, self.id_gen, db_node_id, None, True)
+                Thunk.cache(db_node_id, current_db)
         else:
             current_db = DbNode(
                 self._node, self.id_gen, self.id_gen.next(), {}, False)
@@ -121,6 +124,7 @@ class MonotonicId:
 
 class Thunk:
     SERVICE = "lin-kv"
+    CACHE = {}
 
     def __init__(self, node, id, value, saved):
         self.node = node
@@ -130,6 +134,14 @@ class Thunk:
 
     def id(self):
         return self._id
+
+    @classmethod
+    def cached(cls, id):
+        return cls.CACHE[id] if id in cls.CACHE else None
+
+    @classmethod
+    def cache(cls, id, value):
+        cls.CACHE[id] = value
 
     def to_json(self):
         return self._value
@@ -188,7 +200,11 @@ class DbNode(Thunk):
             for key, thunk_ids in pairs.items():
                 thunks = []
                 for id in thunk_ids:
-                    thunks.append(Thunk(self.node, id, None, True))
+                    thunk = Thunk.cached(id)
+                    if not thunk:
+                        thunk = Thunk(self.node, id, None, True)
+                        Thunk.cache(id, thunk)
+                    thunks.append(thunk)
                 db_map[key] = thunks
         return db_map
 
