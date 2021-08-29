@@ -1,5 +1,7 @@
 import json
+import random
 import threading
+import time
 
 from errors import AbortError
 from errors import TxnConflictError
@@ -42,24 +44,22 @@ class TxnState:
     def __init__(self, node, id_gen):
         self._node = node
         self.id_gen = id_gen
-
-    def apply_txn(self, txn):
-        db_node_id = self._lin_kv_read(self.KEY)
-        if db_node_id:
-            current_db = Thunk.cached(db_node_id)
-            if not current_db:
-                current_db = DbNode(
-                    self._node, self.id_gen, db_node_id, None, True)
-                Thunk.cache(db_node_id, current_db)
-        else:
-            current_db = DbNode(
+        self.db_node = DbNode(
                 self._node, self.id_gen, self.id_gen.next(), {}, False)
 
-        new_db, res = current_db.apply_txn(txn)
-        if current_db != new_db:
+    def apply_txn(self, txn):
+        while True:
+            new_db, res = self.db_node.apply_txn(txn)
             new_db.save()
-            self._lin_kv_cas(self.KEY, current_db.id(), new_db.id())
-        return res
+            if self.db_node != new_db:
+                try:
+                    self._lin_kv_cas(self.KEY, self.db_node.id(), new_db.id())
+                except TxnConflictError:
+                    time.sleep(random.random() * 0.05)
+                    self.db_node = self._lin_kv_read(self.KEY)
+                else:
+                    self.db_node = new_db
+                    return res
 
     def _lin_kv_read(self, key):
         req = {
