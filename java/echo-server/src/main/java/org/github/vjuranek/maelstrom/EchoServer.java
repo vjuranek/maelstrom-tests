@@ -28,8 +28,8 @@ public class EchoServer {
         Gson gson = new GsonBuilder().create();
         String respJson = gson.toJson(resp);
 
-        System.err.println("RESP: " + respJson);
-        System.out.println(respJson);
+        log("RESP: %s", respJson);
+        send(respJson);
     }
 
     public void run() {
@@ -38,7 +38,7 @@ public class EchoServer {
 
         while (in.hasNextLine()) {
             String line = in.nextLine();
-            System.err.println("REQ: " + line);
+            log("REQ: %s", line);
 
             Map<String, Object> req = new HashMap();
             req = (Map<String, Object>) gson.fromJson(line, req.getClass());
@@ -65,6 +65,14 @@ public class EchoServer {
                     throw new IllegalStateException("Unsupported message type " + reqBody.get("type"));
             }
         }
+    }
+
+    private static void send(String msg) {
+        System.out.println(msg);
+    }
+
+    private static void log(String msg, String ... args) {
+        System.err.printf(msg, args);
     }
 
     public static void main(String[] args) {
