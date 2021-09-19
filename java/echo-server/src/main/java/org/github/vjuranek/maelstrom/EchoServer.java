@@ -1,11 +1,11 @@
 package org.github.vjuranek.maelstrom;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Scanner;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import org.github.vjuranek.maelstrom.dto.Request;
+import org.github.vjuranek.maelstrom.dto.Response;
+import org.github.vjuranek.maelstrom.dto.ResponseBody;
 
 
 public class EchoServer {
@@ -17,17 +17,10 @@ public class EchoServer {
         this.nextMsgId = 0;
     }
 
-    public void reply(Map<String, Object> req, Map<String, Object> respBody) {
+    public void reply(Response resp) {
         this.nextMsgId += 1;
 
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("src", this.nodeId);
-        resp.put("dest", req.get("src"));
-        resp.put("body", respBody);
-
-        Gson gson = new GsonBuilder().create();
-        String respJson = gson.toJson(resp);
-
+        String respJson = resp.asJson();
         log("RESP: %s", respJson);
         send(respJson);
     }
@@ -39,30 +32,30 @@ public class EchoServer {
         while (in.hasNextLine()) {
             String line = in.nextLine();
             log("REQ: %s", line);
+            Request req = new Request(gson, line);
 
-            Map<String, Object> req = new HashMap();
-            req = (Map<String, Object>) gson.fromJson(line, req.getClass());
-            Map<String, Object> reqBody = (Map<String, Object>) req.get("body");
+            ResponseBody respBody = new ResponseBody(this.nextMsgId);
+            respBody.withInReplyTo(req.getBody().getMsgId());
 
-            Map<String, Object> respBody = new HashMap<>();
-            respBody.put("msg_id", this.nextMsgId);
-            respBody.put("in_reply_to", ((Double) reqBody.get("msg_id")).intValue()); // gson parses msg_id as double
+            Response resp = new Response(this.nodeId);
+            resp.withDest(req.getSrc());
+            resp.withBody(respBody);
 
-            switch ((String) reqBody.get("type")) {
+            switch (req.getBody().getType()) {
                 case "init":
-                    this.nodeId = (String) reqBody.get("node_id");
-                    respBody.put("type", "init_ok");
-                    this.reply(req, respBody);
+                    this.nodeId = (String) req.getBody().get("node_id");
+                    respBody.withType("init_ok");
+                    this.reply(resp);
                     break;
 
                 case "echo":
-                    respBody.put("type", "echo_ok");
-                    respBody.put("echo", reqBody.get("echo"));
-                    this.reply(req, respBody);
+                    respBody.withType("echo_ok");
+                    respBody.with("echo", req.getBody().get("echo"));
+                    this.reply(resp);
                     break;
 
                 default:
-                    throw new IllegalStateException("Unsupported message type " + reqBody.get("type"));
+                    throw new IllegalStateException("Unsupported message type " + req.getBody().getType());
             }
         }
     }
