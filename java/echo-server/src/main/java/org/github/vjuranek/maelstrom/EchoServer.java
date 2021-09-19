@@ -13,7 +13,12 @@ public class EchoServer {
     private String nodeId;
     private int nextMsgId;
 
+    private final Scanner in;
+    private final Gson gson;
+
     public EchoServer() {
+        this.in = new Scanner(System.in);
+        this.gson = new Gson();
         this.nextMsgId = 0;
     }
 
@@ -26,18 +31,15 @@ public class EchoServer {
     }
 
     public void run() {
-        Scanner in = new Scanner(System.in);
-        Gson gson = new Gson();
-
-        while (in.hasNextLine()) {
-            String line = in.nextLine();
+        while (this.in.hasNextLine()) {
+            String line = this.in.nextLine();
             log("REQ: %s", line);
-            Request req = new Request(gson, line);
+            Request req = new Request(this.gson, line);
 
             ResponseBody respBody = new ResponseBody(this.nextMsgId);
             respBody.withInReplyTo(req.getBody().getMsgId());
 
-            Response resp = new Response(this.nodeId);
+            Response resp = new Response(this.gson, this.nodeId);
             resp.withDest(req.getSrc());
             resp.withBody(respBody);
 
